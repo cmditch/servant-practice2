@@ -10,13 +10,14 @@ import qualified Network.Wai.Handler.Warp   as Warp
 import           Options.Applicative.Simple
 import qualified Paths_servant_practice2
 import           RIO
+import qualified RIO.HashMap                as HM
 import           RIO.Process
-import           Servant                    (Server)
-import qualified Servant
+import           Servant
+
 -- Internal
 import           Api                        (API)
 import qualified Api
-import           Domain                     (User (..))
+import           Domain                     (Contract (..), User (..))
 
 
 
@@ -98,6 +99,7 @@ startApp logFunc =
 warpSettings :: LogFunc -> Warp.Settings
 warpSettings logFunc =
   Warp.setLogger (toWarpLogger logFunc) Warp.defaultSettings
+  & Warp.setPort 8000
 
 
 toWarpLogger :: LogFunc -> (Wai.Request -> Http.Status -> Maybe Integer -> IO ())
@@ -113,11 +115,38 @@ waiApp = Servant.serve Api.api server
 
 
 server :: Server API
-server = return users
+server = users
+    :<|> userById
+    :<|> contracts
+  where
+    users :: Servant.Handler [User]
+    users = return (HM.elems usersTable)
+
+    userById :: Int -> Servant.Handler User
+    userById id =
+      case getUserById id of
+        Just user ->
+          return user
+        Nothing ->
+          throwError err404 {errBody = "Could not find user by given id"}
+
+    contracts :: Servant.Handler [Contract]
+    contracts = return contractTable
 
 
-users :: [User]
-users = [ User 1 "Satoshi" "Nakamoto"
-        , User 2 "Haskell" "Curry"
-        , User 3 "Alan" "Turing"
-        ]
+
+getUserById :: Int -> Maybe User
+getUserById id =
+    HM.lookup id usersTable
+
+
+usersTable :: HM.HashMap Int User
+usersTable = HM.fromList
+    [ (1, User 1 "Satoshi" "Nakamoto")
+    , (2, User 2 "Haskell" "Curry")
+    , (3, User 3 "Alan" "Turing")
+    ]
+
+contractTable :: [Contract]
+contractTable = []
+
