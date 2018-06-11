@@ -88,6 +88,7 @@ run = do
   logInfo "We're inside the application!"
   appEnv <- ask
   logDebug $ (<>) "Your App env is: " $ displayShow appEnv
+  Api.writeSwaggerJSON
   liftIO $ startApp $ appLogFunc appEnv
 
 
@@ -114,10 +115,14 @@ waiApp :: Wai.Application
 waiApp = Servant.serve Api.api server
 
 
+
+-- Servant handlers
+--------------------------------
 server :: Server API
 server = users
     :<|> userById
     :<|> contracts
+
   where
     users :: Servant.Handler [User]
     users = return (HM.elems usersTable)
@@ -132,7 +137,6 @@ server = users
 
     contracts :: Servant.Handler [Contract]
     contracts = return contractTable
-
 
 
 getUserById :: Int -> Maybe User
