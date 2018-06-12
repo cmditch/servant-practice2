@@ -32,8 +32,8 @@ import           Control.Monad.Logger        (LogStr, MonadLogger (..))
 import           Api                         (API)
 import qualified Api
 import qualified DB
+import qualified ElmGen
 import           Model                       (Contract (..), User (..))
-
 
 ------------------------------------------------------------
 -- App Structure
@@ -126,14 +126,19 @@ main = do
   webPort     <- buildWebPort config
   pc          <- mkDefaultProcessContext
 
-  withLogFunc logOptions $ \lf ->
+  withLogFunc logOptions $ \lf -> do
     let app = App
-          { appLogFunc = lf
-          , appProcessContext = pc
-          , appWebPort = webPort
-          , appDBDriver = dbDriver
-          }
-     in runRIO app run
+            { appLogFunc = lf
+            , appProcessContext = pc
+            , appWebPort = webPort
+            , appDBDriver = dbDriver
+            }
+    runRIO app $ do
+      logWarn $ displayShow _fileWarnings
+      ElmGen.generate
+      runWebServer
+      -- async $ logWarn "test"
+      -- return ()
 
 
 
@@ -142,8 +147,8 @@ main = do
 
 
 
-run :: RIO App ()
-run = do
+runWebServer :: RIO App ()
+runWebServer = do
   logDebug "Server starting..."
   appEnv <- ask
   logDebug $ "Using DB: " <> (displayShow $ appDBDriver appEnv)

@@ -30,6 +30,8 @@ dependencies:
 - servant
 - servant-server
 - servant-swagger
+- servant-elm
+- elm-export
 - swagger2
 - persistent
 - persistent-postgresql
