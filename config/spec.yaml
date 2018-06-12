@@ -2,7 +2,7 @@ etc/files:
   env: APP_CONFIG_FILE
   paths:
   - ./config/development.yaml
-  - /etc/my-app/integration.yaml # This takes precedence over development.
+  - /etc/my-app/staging.yaml # This takes precedence over development.
   - /etc/my-app/production.yaml  # This takes precedence integration and development.
 
 
@@ -10,6 +10,7 @@ etc/files:
 # With etc/entries we define the configuration map structure your
 # application is going to be reading values from
 etc/entries:
+
 # Logging
   logging:
     verbose:
@@ -20,21 +21,32 @@ etc/entries:
       etc/spec:
         default: 'stdout'
         env: APP_LOG_HANDLE
-#
+
+# Webserver
   webserver:
     port:
       etc/spec:
         default: 3000
         type: number
         env: APP_WEB_PORT
+        cli:
+          input: option
+          required: false
+          long: web-port
+          metavar: HTTP-PORT
 
 # Database
   database:
     driver:
       etc/spec:
-        default: postgres
+        default: sqlite
         type: string
         env: APP_DB_DRIVER
+        cli:
+          input: option
+          required: false
+          long: db-driver
+          metavar: POSTGRES-OR-SQLITE
 
     username:
       etc/spec:
@@ -44,8 +56,8 @@ etc/entries:
         cli:
           input: option
           required: false
-          long: user
-          metavar: USERNAME
+          long: db-user
+          metavar: DB-USERNAME
 
     password:
       etc/spec:
@@ -56,8 +68,9 @@ etc/entries:
         cli:
           input: option
           required: false
-          long: password
-          metavar: PASSWORD
+          long: db-password
+          metavar: DB-PASSWORD
+
     port:
       etc/spec:
         default: '5432'
@@ -66,12 +79,22 @@ etc/entries:
 
     database:
       etc/spec:
-        default: opaleye
+        default: opptest
         type: string
         env: APP_DB_NAME
+        cli:
+          input: option
+          required: false
+          long: db-name
+          metavar: DB-NAME
 
     host:
       etc/spec:
         default: localhost
-        env: APP_DB_HOST
         type: string
+        env: APP_DB_HOST
+        cli:
+          input: option
+          required: false
+          long: db-host
+          metavar: DB-HOST

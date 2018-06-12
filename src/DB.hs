@@ -35,21 +35,21 @@ import           Model
 data DBDriver
     = Sqlite Text
     | Postgres ConnectionString
+    deriving (Show, Eq, Ord)
 
 
 buildDBDriver :: Etc.Config -> IO DBDriver
 buildDBDriver config = do
-    connString <- Etc.getConfigValueWith parseConnString ["database"] config
-    driver <- Etc.getConfigValueWith (parseDriver connString) ["database", "driver"] config
-    return driver
+    dbConfigVal <- Etc.getConfigValue ["database"] config
+    Etc.getConfigValueWith (parseDriver dbConfigVal) ["database", "driver"] config
 
 
-parseDriver :: ConnectionString -> JSON.Value -> JSON.Parser DBDriver
-parseDriver connString =
+parseDriver :: JSON.Value -> JSON.Value -> JSON.Parser DBDriver
+parseDriver dbConfigVal =
     JSON.withText "DB.Driver" $ \handleName ->
         case Text.toLower handleName of
-            "postgres" -> return (Postgres connString)
-            "sqlite"   -> return (Sqlite $ decodeUtf8With lenientDecode connString)
+            "postgres" -> Postgres <$> parseConnString dbConfigVal
+            "sqlite"   -> Sqlite <$> parseDBName dbConfigVal
             _          -> JSON.typeMismatch "Database Driver" (JSON.String handleName)
 
 
@@ -70,7 +70,10 @@ parseConnString = JSON.withObject "DB.ConnectionString" $ \obj -> do
                         ]
 
 
-
+parseDBName :: JSON.Value -> JSON.Parser Text
+parseDBName = JSON.withObject "DB.ConnectionString" $ \obj -> do
+    database <- obj .: "database"
+    return (database <> ".db3")
 
 
 ------------------------------------------------------------
@@ -88,7 +91,6 @@ runAction dbRunner action =
 
             Postgres connectionByteString ->
                 withPostgresqlConn connectionByteString runner
-
 
 
 migrateDB :: (MonadIO m, MonadUnliftIO m, MonadLogger m) => DBDriver -> m ()

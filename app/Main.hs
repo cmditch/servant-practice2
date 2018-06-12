@@ -146,6 +146,7 @@ run :: RIO App ()
 run = do
   logDebug "Server starting..."
   appEnv <- ask
+  logDebug $ "Using DB: " <> (displayShow $ appDBDriver appEnv)
   Api.writeSwaggerJSON
   DB.migrateDB $ appDBDriver appEnv
   startWebServer
