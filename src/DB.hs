@@ -2,41 +2,109 @@
 
 module DB where
 
-import           Database.Persist.Postgresql (ConnectionString)
 import           RIO
--- import           Control.Monad.Reader        (runReaderT)
--- import           Control.Monad.IO.Class (MonadIO)
+import qualified RIO.Text                    as Text
+
+import           Data.Aeson                  ((.:))
+import qualified Data.Aeson                  as JSON
+import qualified Data.Aeson.Types            as JSON (Parser, typeMismatch)
+
+import qualified System.Etc                  as Etc
+
 import           Control.Monad.Logger        (LogStr, MonadLogger (..))
 import qualified Control.Monad.Logger        as LegacyLogger
+import qualified GHC.Stack                   as GS
+import           System.Log.FastLogger       (fromLogStr)
+
 import           Database.Persist            (Entity, Key (..), SelectOpt (..),
                                               get, selectList, toPersistValue,
                                               (<.), (==.))
-import           Database.Persist.Postgresql (ConnectionString, SqlPersistT,
-                                              runMigration, toSqlKey,
+import           Database.Persist.Postgresql (ConnectionString,
                                               withPostgresqlConn)
-import qualified GHC.Stack                   as GS
+import           Database.Persist.Sql        (SqlBackend, SqlPersistT,
+                                              runMigration, toSqlKey)
+import           Database.Persist.Sqlite     (withSqliteConn)
+
 import           Model
-import           System.Log.FastLogger       (fromLogStr)
 
 
-connString :: ConnectionString
-connString =
-    "host=127.0.0.1 port=5432 user=test dbname=opaleye password=qwerty"
+
+------------------------------------------------------------
+-- Configuration
+
+data DBDriver
+    = Sqlite Text
+    | Postgres ConnectionString
 
 
-runAction :: (MonadIO m, MonadUnliftIO m, MonadLogger m ) => ConnectionString -> SqlPersistT m a -> m a
-runAction connectionString action =
-    withPostgresqlConn connectionString $ \backend ->
-    runReaderT action backend
+buildDBDriver :: Etc.Config -> IO DBDriver
+buildDBDriver config = do
+    connString <- Etc.getConfigValueWith parseConnString ["database"] config
+    driver <- Etc.getConfigValueWith (parseDriver connString) ["database", "driver"] config
+    return driver
 
 
-migrateDB :: (MonadIO m, MonadUnliftIO m, MonadLogger m) => ConnectionString -> m ()
-migrateDB connString = runAction connString (runMigration migrateAll)
+parseDriver :: ConnectionString -> JSON.Value -> JSON.Parser DBDriver
+parseDriver connString =
+    JSON.withText "DB.Driver" $ \handleName ->
+        case Text.toLower handleName of
+            "postgres" -> return (Postgres connString)
+            "sqlite"   -> return (Sqlite $ decodeUtf8With lenientDecode connString)
+            _          -> JSON.typeMismatch "Database Driver" (JSON.String handleName)
+
+
+parseConnString :: JSON.Value -> JSON.Parser ConnectionString
+parseConnString = JSON.withObject "DB.ConnectionString" $ \obj -> do
+    user     <- obj .: "username"
+    password <- obj .: "password"
+    database <- obj .: "database"
+    host     <- obj .: "host"
+    port     <- obj .: "port"
+    return $
+        Text.encodeUtf8
+        $ Text.unwords [ "user=" <> user
+                        , "password=" <> password
+                        , "dbname=" <> database
+                        , "host=" <> host
+                        , "port=" <> port
+                        ]
+
+
+
+
+
+------------------------------------------------------------
+-- Runners
+
+runAction :: (MonadIO m, MonadUnliftIO m, MonadLogger m ) => DBDriver -> SqlPersistT m a -> m a
+runAction dbRunner action =
+    let
+        runner backend =
+            runReaderT action backend
+    in
+        case dbRunner of
+            Sqlite connectionText ->
+                withSqliteConn connectionText runner
+
+            Postgres connectionByteString ->
+                withPostgresqlConn connectionByteString runner
+
+
+
+migrateDB :: (MonadIO m, MonadUnliftIO m, MonadLogger m) => DBDriver -> m ()
+migrateDB dbRunner =
+    runAction dbRunner (runMigration migrateAll)
 
 
 getUser :: (MonadIO m) => Int -> SqlPersistT m (Maybe User)
-getUser = get . toSqlKey . fromIntegral
+getUser =
+    get . toSqlKey . fromIntegral
 
+
+
+
+-----------------------------------------------------------------------------------------------
+-- Temporary
 -- This is in the upcoming release of RIO Orphans
 -- Manually being added here for now, so it can play nice with Persistent-postgres
 

@@ -22,20 +22,23 @@ description:         Please see the README on Github at <https://github.com/cmdi
 dependencies:
 - base >= 4.10 && < 10
 - rio >= 0.1.1.0
-- monad-logger
+- lens
+- aeson
+- wai
+- warp
 - http-types
 - servant
 - servant-server
 - servant-swagger
 - swagger2
-- aeson
-- wai
-- warp
-- lens
 - persistent
 - persistent-postgresql
+- persistent-sqlite
 - persistent-template
+- monad-logger
 - fast-logger
+- etc
+- file-embed
 
 ghc-options:
 - -Wall

@@ -1,0 +1,77 @@
+etc/files:
+  env: APP_CONFIG_FILE
+  paths:
+  - ./config/development.yaml
+  - /etc/my-app/integration.yaml # This takes precedence over development.
+  - /etc/my-app/production.yaml  # This takes precedence integration and development.
+
+
+###
+# With etc/entries we define the configuration map structure your
+# application is going to be reading values from
+etc/entries:
+# Logging
+  logging:
+    verbose:
+      etc/spec:
+        default: true
+        env: APP_LOG_VERBOSE
+    handle:
+      etc/spec:
+        default: 'stdout'
+        env: APP_LOG_HANDLE
+#
+  webserver:
+    port:
+      etc/spec:
+        default: 3000
+        type: number
+        env: APP_WEB_PORT
+
+# Database
+  database:
+    driver:
+      etc/spec:
+        default: postgres
+        type: string
+        env: APP_DB_DRIVER
+
+    username:
+      etc/spec:
+        default: test
+        type: string
+        env: APP_DB_USER
+        cli:
+          input: option
+          required: false
+          long: user
+          metavar: USERNAME
+
+    password:
+      etc/spec:
+        default: qwerty
+        type: string
+        sensitive: true
+        env: APP_DB_PASSWORD
+        cli:
+          input: option
+          required: false
+          long: password
+          metavar: PASSWORD
+    port:
+      etc/spec:
+        default: '5432'
+        type: string
+        env: APP_DB_PORT
+
+    database:
+      etc/spec:
+        default: opaleye
+        type: string
+        env: APP_DB_NAME
+
+    host:
+      etc/spec:
+        default: localhost
+        env: APP_DB_HOST
+        type: string

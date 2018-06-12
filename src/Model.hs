@@ -11,6 +11,7 @@ import           RIO
 
 -- USER
 PTH.share [PTH.mkPersist PTH.sqlSettings, PTH.mkMigrate "migrateAll"] [PTH.persistLowerCase|
+
   User sql=users
     firstName Text
     lastName Text
@@ -20,6 +21,7 @@ PTH.share [PTH.mkPersist PTH.sqlSettings, PTH.mkMigrate "migrateAll"] [PTH.persi
     userId Int
     address Text
     deriving Show Read Eq Generic
+
 |]
 
 
