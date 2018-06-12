@@ -14,11 +14,12 @@ import qualified RIO.HashMap                as HM
 import           RIO.Process
 import           Servant
 
+
 -- Internal
 import           Api                        (API)
 import qualified Api
-import           Domain                     (Contract (..), User (..))
-
+import qualified DB
+import           Model                      (Contract (..), User (..))
 
 
 -- TYPES
@@ -82,19 +83,19 @@ main = do
 
 
 
-
 run :: RIO App ()
 run = do
   logInfo "We're inside the application!"
   appEnv <- ask
   logDebug $ (<>) "Your App env is: " $ displayShow appEnv
   Api.writeSwaggerJSON
+  DB.migrateDB DB.connString
   liftIO $ startApp $ appLogFunc appEnv
 
 
 startApp :: LogFunc -> IO ()
 startApp logFunc =
-  Warp.runSettings (warpSettings logFunc) waiApp
+  Warp.runSettings (warpSettings logFunc) (waiApp logFunc)
 
 
 warpSettings :: LogFunc -> Warp.Settings
@@ -111,44 +112,39 @@ toWarpLogger logFunc = \req status mFileSize ->  runRIO logFunc $ do
 
 
 
-waiApp :: Wai.Application
-waiApp = Servant.serve Api.api server
+waiApp :: LogFunc -> Wai.Application
+waiApp logFunc = Servant.serve Api.api (server logFunc)
 
 
 
 -- Servant handlers
 --------------------------------
-server :: Server API
-server = users
-    :<|> userById
-    :<|> contracts
-
+server :: LogFunc -> Server API
+server logFunc = users
+            :<|> userById
+            :<|> contracts
   where
-    users :: Servant.Handler [User]
-    users = return (HM.elems usersTable)
+      users :: Servant.Handler [User]
+      users = return (HM.elems usersTable)
 
-    userById :: Int -> Servant.Handler User
-    userById id =
-      case getUserById id of
-        Just user ->
-          return user
-        Nothing ->
-          throwError err404 {errBody = "Could not find user by given id"}
+      userById :: Int -> Servant.Handler User
+      userById uid = do
+        mUser <- liftIO $ runRIO logFunc $ DB.runAction DB.connString (DB.getUser uid)
+        case mUser of
+          Just user ->
+            return user
+          Nothing ->
+            throwError err404 {errBody = "Could not find user by given id"}
 
-    contracts :: Servant.Handler [Contract]
-    contracts = return contractTable
-
-
-getUserById :: Int -> Maybe User
-getUserById id =
-    HM.lookup id usersTable
+      contracts :: Servant.Handler [Contract]
+      contracts = return contractTable
 
 
 usersTable :: HM.HashMap Int User
 usersTable = HM.fromList
-    [ (1, User 1 "Satoshi" "Nakamoto")
-    , (2, User 2 "Haskell" "Curry")
-    , (3, User 3 "Alan" "Turing")
+    [ (1, User "Satoshi" "Nakamoto")
+    , (2, User "Haskell" "Curry")
+    , (3, User "Alan" "Turing")
     ]
 
 contractTable :: [Contract]
